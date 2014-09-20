@@ -58,7 +58,7 @@ public class Sphere extends Objet{
             alpha2 = (-b - Math.sqrt(d)) / 2 * a;
             Point p1 = new Point(alpha1 * vx + xr , alpha1 * vy + yr , alpha1 * vz + zr);
             Point p2 = new Point(alpha2 * vx + xr , alpha2 * vy + yr , alpha2 * vz + zr);
-            if(p1.distance(getOrigine()) == rayon)
+            if(p1.distance(r.getOrigine()) == rayon)
             {
                 return p1;
             }
