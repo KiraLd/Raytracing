@@ -97,4 +97,18 @@ public class Vect3d {
         return Math.sqrt(x * x + y * y + z * z);
     }
     
+    public void normalise()
+    {
+        double n = module();
+        x = x/n;
+        y = y/n;
+        z = z/n;
+    }
+    
+    public void afficher()
+    {
+        System.out.println(x+" "+y+" "+z);
+    }
+            
+    
 }
