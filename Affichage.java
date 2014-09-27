@@ -10,15 +10,15 @@ import java.awt.Graphics;
 import javax.swing.JPanel;
 
 /**
- *
+ * 
  * @author Lucas
  */
 public class Affichage extends JFrame{
     public Affichage(){
         
         //résolution 
-        int x = 500;
-        int y = 500;
+        int x = 800;
+        int y = 600;
         //création de la fenêtre
         this.setTitle("Raytracer");
         this.setSize(x,y);
@@ -35,29 +35,45 @@ public class Affichage extends JFrame{
         //Création de la caméra
         Camera c = new Camera();
         c.setRes(x, y);
-        c.setFocale(200);
+        c.setFocale(300);
         
         //Création des sphères
-        Point p1 = new Point(0,0,2000);
-        Point p2 = new Point(400,0,1500);
+        Point p1 = new Point(-250,0,50000);
+        Point p2 = new Point(-200,0,500);
+        Point p3 = new Point(550,0,1000);
         Vect3d bleu = new Vect3d(0,0,255);
         Vect3d rouge = new Vect3d(255,0,0);
-        Sphere s1 = new Sphere(bleu,1.0,p1,500);
-        Sphere s2 = new Sphere(rouge,0.5,p2,150);
+        Vect3d vert = new Vect3d(0,255,0);
+        Vect3d blanc = new Vect3d(255,255,255);
+        Sphere s1 = new Sphere(bleu,0.01,bleu,0.8,bleu,0.19,p1,15000);
+        Sphere s2 = new Sphere(rouge,0.01,rouge,0.8,rouge,0.19,p2,75);
+        Sphere s3 = new Sphere(vert,0.01,vert,0.8,vert,0.19,p3,500);
+        int n = 15;
         
+        double r2;
+        double v;
+        double b;
+        Vect3d normal;
+        double coef_diffuse;
         
         //tableau d'objet représentant la scène à affiché
-        Objet[] scene = {s1,s2};
-        int taille = 2;
-        Objet courant = null;
+        Objet[] scene = {s1,s2,s3};
+        int taille = 3;
+        Objet courant;
         
         //origine de la source de lumière
-        Point lumiere = new Point(0,100,0);
+        Point lumiere = new Point(500,0,0);
         
         
         //Rayons utilisés pour les calculs
         Rayon r = new Rayon();
         Rayon ombre = new Rayon();
+        Rayon reflechi;
+        Rayon objet;
+        double x_r;
+        double y_r;
+        double z_r;
+        double scalaire;
         boolean ombre2;
         
         //variable utilisé pour déterminer l'objet à afficher
@@ -66,12 +82,19 @@ public class Affichage extends JFrame{
         double distance2;
         
         //Point d'intersection
-        Point inter = null;
+        Point inter;
+        Point inter2;
         
         //Utilisé pour la couleur de l'objet à afficher
-        Color couleur = new Color(255,0,0);
-        double coef;
-        
+        Color couleur_final;
+        double coef_ambiante;
+        double attenuation;
+        double coef_speculaire;
+        Point temp=null;
+        long start; 
+
+        start = System.nanoTime();
+
         for(int i = 0 ; i < x ; i++)
         {
             courant = null;
@@ -79,47 +102,111 @@ public class Affichage extends JFrame{
             {
                 min_distance=Double.POSITIVE_INFINITY;
                 r.calculerRayon(c, i, j);                                       //on calcul le rayon partant de la caméra, pour chaque pixels de l'écran
+                r.getDirection().normalise();
                 for(int k = 0 ; k < taille ; k++)                                       //on détermine l'objet le plus proche de la caméra et en intersection avec le rayon
                 {
                     inter = scene[k].intersection(r);
                     if(inter.getX() < Double.POSITIVE_INFINITY)                   //inter.getX()==INFINITY si le rayon n'est pas en intersection avec l'objet scene[k]
                     {
                         distance = inter.distance(c.getOrigine());
+                      //  inter.afficher();
+                        
                         if(distance < min_distance)
                         {
+                            temp=new Point(inter);
+                            //temp.afficher();
                             courant = scene[k];
                             min_distance = distance;
                         }
                     }   
                 }
-                if(min_distance < Double.POSITIVE_INFINITY)                       //min_distance=INFINITY si le rayon ne coupe aucun objet
+                
+                if(min_distance < Double.POSITIVE_INFINITY&&courant!=null&&temp!=null)                       //min_distance=INFINITY si le rayon ne coupe aucun objet
                 {
-                    distance = inter.distance(lumiere); 
-                    ombre.calculerRayon_point(inter, inter, lumiere);           //on calcul le rayon entre le point d'intersection et l'origine de la lumière
-                    ombre2 = false;
                     
-                    
-                    for(int k = 0 ; k < taille ; k++)                                 //pour chaque objet on vérifie qu'il n'y a pas d'objet entre l'objet à afficher et la source de lumière
+                    inter2 = new Point(temp); 
+                    ombre.calculerRayon_point(inter2, lumiere, inter2);           //on calcul le rayon entre le point d'intersection et l'origine de la lumière
+                    normal = new Vect3d(courant.getOrigine(),inter2);
+                    normal.normalise();
+                    ombre.getDirection().normalise();
+                    objet = new Rayon(r.getOrigine(),new Vect3d(r.getOrigine(),courant.getOrigine()));
+                    objet.getDirection().normalise();
+                    if(objet.getDirection().produit_scalaire(normal)<0)
                     {
-                            inter = scene[k].intersection(ombre);               
-                            distance2 = inter.distance(lumiere);
-                            if(distance2 < distance && inter.getX() < Double.POSITIVE_INFINITY)
-                            {
-                                
-                                ombre2=true;                                    
-                                break;
-                            }
-                            
-                    }
-                    if(!ombre2)                                                 //si il n'y a pas d'objet entre la lumière et l'objet à afficher, on calcul la couleur de l'objet puis on affiche
-                    {
-                        coef = courant.getCoefCouleur();
-                        couleur = new Color( (int)  (courant.getCouleur().getX() * coef) , (int) (courant.getCouleur().getY() * coef) , (int) (courant.getCouleur().getZ() * coef));
-                        g.setColor(couleur);
+                        //calcul de la lumière diffuse
+                        coef_diffuse = normal.produit_scalaire(ombre.getDirection());
+                        if(coef_diffuse>0)
+                        {
+                            coef_diffuse=0;
+                        }
+                        
+                        //coef associé à l'objet courant
+                        coef_ambiante = courant.getCoefCouleurAmbiante();
+                        coef_speculaire=courant.getCoefCouleurSpeculaire();
+                        attenuation = courant.getCoefCouleurDiffuse();
+                        
+                        //calcul du rayon réfléchi
+                        scalaire = 2*normal.produit_scalaire(ombre.getDirection());
+                        x_r = normal.getX() * scalaire;
+                        y_r = normal.getY() * scalaire;
+                        z_r = normal.getZ() * scalaire;
+                        x_r = r.getDirection().getX()- x_r;
+                        y_r = r.getDirection().getY() - y_r;
+                        z_r = r.getDirection().getZ() - z_r;
+                        reflechi = new Rayon(inter2,new Vect3d(x_r,y_r,z_r));
+                        reflechi.getDirection().normalise();
+                        
+                        //calcul reflexion speculaire
+                        scalaire = Math.pow(reflechi.getDirection().produit_scalaire(r.getDirection()), n);
+                        if(scalaire>0)
+                        {
+                            scalaire=0;
+                        }
+
+                        //calcul de la couleur
+                        r2 = courant.getCouleurAmbiante().getX()*coef_ambiante + courant.getCouleurDiffuse().getX()*coef_diffuse*attenuation + scalaire*coef_speculaire*courant.getCouleurSpeculaire().getX();
+                        v = courant.getCouleurAmbiante().getY()*coef_ambiante + courant.getCouleurDiffuse().getY()*coef_diffuse*attenuation + scalaire*coef_speculaire*courant.getCouleurSpeculaire().getY();
+                        b = courant.getCouleurAmbiante().getZ()*coef_ambiante + courant.getCouleurDiffuse().getZ()*coef_diffuse*attenuation + scalaire*coef_speculaire*courant.getCouleurSpeculaire().getZ();
+
+                        
+                        //vérification composantes valides
+                        if(r2>255)
+                        {
+                            r2=255;
+                        }
+                        if(r2<0)
+                        {
+                            r2=-r2%255;
+                        }
+                        if(v>255)
+                        {
+                            v=255;
+                        }
+                        if(v<0)
+                        {
+                            v=-v%255;
+                        }
+                        if(b>255)
+                        {
+                            b=255;
+                        }
+                        if(b<0)
+                        {
+                            b=-b%255;
+                        }
+                        
+                        //affichage du pixel (i,j)
+                        couleur_final = new Color( (int)r2,(int)v,(int)b);
+                        g.setColor(couleur_final);
                         g.fillRect(i, j, 1, 1);
                     }
-                }
+               }
             }
         }
+        
+        //temps d'execution
+        long duree = System.nanoTime() - start;
+
+        System.out.println((double)duree/1000000000);      
     }
 }
